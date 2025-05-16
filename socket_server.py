@@ -1,4 +1,5 @@
 import socket
+from configuration import working_directory, host, port, home_file
 import threading 
 import os
 
@@ -10,7 +11,7 @@ class ClientThread(threading.Thread):
         print('Hello!', clientAddress)
     
     def run(self):
-        working_dir = os.getcwd()
+        working_dir = working_directory
         while True:
             request = self.csocket.recv(1024).decode().split('\n')
             print(request)
@@ -23,7 +24,7 @@ class ClientThread(threading.Thread):
             body = ""
 
             if os.path.isdir(url):
-                url = os.path.join(url,"index.htm")
+                url = os.path.join(url,home_file)
 
             if os.path.isfile(url):
                 code_error = "200 OK"
@@ -38,7 +39,7 @@ class ClientThread(threading.Thread):
 
 def main():
     server = socket.socket()
-    server.bind(('127.0.0.1', 4646))
+    server.bind((host, port))
     server.listen(1)
     while True:
         clientSock, clientAddress = server.accept()
