@@ -31,8 +31,9 @@ class ClientThread(threading.Thread):
                 body = open(url, 'r').read()
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
                 self.csocket.send(responce.encode())
+                self.csocket.close()
                 
-            self.csocket.close()
+            
             print("Connection close, bye!\n")
 
     
