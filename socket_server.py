@@ -36,7 +36,7 @@ class ClientThread(threading.Thread):
                         <body>\
                             <h1>Index of /</h1>\
                             <hr>\
-                            <h5>Denis server/ 1.0.0</h5>\
+                            <h5>{os.listdir(working_dir)}</h5>\
                         </body>\
                     </html>"
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
