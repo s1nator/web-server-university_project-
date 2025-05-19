@@ -28,32 +28,28 @@ class ClientThread(threading.Thread):
             
             if os.path.isdir(url):
                 url = os.path.join(url, home_file)
-                
-                body = open(url, 'r').read()
-                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
-                self.csocket.send(responce.encode())
-                self.csocket.close()
-
+    
             if url.split('/')[-1] == 'indexof':
                 code_error = "200 OK"
-                body = "Index of /\n"
+                body = body = f"<html> \
+                        <head></head>\
+                        <body>\
+                            <h1>Index of /</h1>\
+                            <hr>\
+                            <h5>Denis server/ 1.0.0</h5>\
+                        </body>\
+                    </html>"
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
 
-            if url.split('/')[-1] == "visited.htm":
+            elif os.path.isfile(url):
                 code_error = "200 OK"
                 body = open(url, 'r').read()
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
 
-            if url.split('/')[-1] == "index.htm":
-                code_error = "200 OK"
-                body = open(url, 'r').read()
-                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
-                self.csocket.send(responce.encode())
-                self.csocket.close()
             else:
                 code_error = "404 Not Found"
                 body = f"<html> \
