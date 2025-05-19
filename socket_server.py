@@ -11,34 +11,60 @@ class ClientThread(threading.Thread):
         print('Hello!', clientAddress)
     
     def run(self):
+        request = []
         working_dir = working_directory
-        while True:
-            request = self.csocket.recv(1024).decode().split('\n')
+        request += self.csocket.recv(4096).decode().split('\n')
+
+        while request[-2] != "\r":
+            request += self.csocket.recv(4096).decode().split('\n')
             print(request)
 
+        while True:
+            print(len(request))
+            print(request)
+    
             method, url, protocol = request[0].split(' ')
             url = os.path.join(working_dir, url[1:])
-            print(url)
-
-            code_error = "404 Not Found"
-            body = ""
-
+            
             if os.path.isdir(url):
-                url = os.path.join(url,home_file)
+                url = os.path.join(url, home_file)
+    
+            if url.split('/')[-1] == 'indexof':
+                code_error = "200 OK"
+                body = body = f"<html> \
+                        <head></head>\
+                        <body>\
+                            <h1>Index of /</h1>\
+                            <hr>\
+                            <h5>Denis server/ 1.0.0</h5>\
+                        </body>\
+                    </html>"
+                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+                self.csocket.send(responce.encode())
+                self.csocket.close()
 
-            if os.path.isfile(url):
+            elif os.path.isfile(url):
                 code_error = "200 OK"
                 body = open(url, 'r').read()
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
+
             else:
                 code_error = "404 Not Found"
-                body = "404 Not Found"
+                body = f"<html> \
+                        <head></head>\
+                        <body>\
+                            <center>\
+                                <h1>404 Not Found</h1>\
+                            </center>\
+                            <hr>\
+                            <center>Denis server/ 1.0.0</center>\
+                        </body>\
+                    </html>"
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
-                
             
             print("Connection close, bye!\n")
     
@@ -46,6 +72,7 @@ class ClientThread(threading.Thread):
 
 def main():
     server = socket.socket()
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((host, port))
     server.listen(1)
     while True:
