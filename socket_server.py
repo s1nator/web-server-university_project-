@@ -32,10 +32,16 @@ class ClientThread(threading.Thread):
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
+            else:
+                code_error = "404 Not Found"
+                body = "404 Not Found"
+                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+                self.csocket.send(responce.encode())
+                self.csocket.close()
                 
             
             print("Connection close, bye!\n")
-
+    
     
 
 def main():
