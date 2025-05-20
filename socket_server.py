@@ -3,6 +3,12 @@ from configuration import working_directory, host, port, home_file
 import threading 
 import os
 
+def write_in_file(log):
+    with open("access.log", 'r+') as f:
+        file = f.read()
+        file.write(log)
+        f.close()
+
 class ClientThread(threading.Thread):
 
     def __init__(self, clientAddress, clientSock):
@@ -31,22 +37,31 @@ class ClientThread(threading.Thread):
     
             if url.split('/')[-1] == 'indexof':
                 code_error = "200 OK"
-                body = body = f"<html> \
+                list_files = os.listdir(working_dir)
+                body = f"<html> \
                         <head></head>\
                         <body>\
                             <h1>Index of /</h1>\
                             <hr>\
-                            <h5>{os.listdir(working_dir)}</h5>\
-                        </body>\
-                    </html>"
-                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+                        "
+                for file in list_files:
+                    if os.path.isfile(file):
+                        body += f"<h4><a href={file}>{file}</a></h4>"
+                    if os.path.isdir(file):
+                        working_dir = os.path.join(working_dir, file)
+                        body += f"<h4><a href={file}>{file}</a></h4>"
+                body += f"<hr>"
+
+                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
+                    + "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
 
             elif os.path.isfile(url):
                 code_error = "200 OK"
                 body = open(url, 'r').read()
-                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
+                    + "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
 
@@ -62,7 +77,8 @@ class ClientThread(threading.Thread):
                             <center>Denis server/ 1.0.0</center>\
                         </body>\
                     </html>"
-                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+                responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + \
+                      "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
             
