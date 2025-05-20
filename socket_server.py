@@ -4,13 +4,10 @@ import threading
 import time
 import os
 
-logs_list = []
 
 def write_in_file(logs, value_delete):
-    print(logs_list)
     with open("access.log", 'a', encoding="utf-8") as f:
         f.write(str(logs) + "\n")
-        logs_list.append(logs)
         f.close()
 
 class ClientThread(threading.Thread):
@@ -27,12 +24,9 @@ class ClientThread(threading.Thread):
 
         while request[-2] != "\r":
             request += self.csocket.recv(4096).decode().split('\n')
-            print(request)
 
         while True:
             logs = []
-            print(len(request))
-            print(request)
     
             method, url, protocol = request[0].split(' ')
             url = os.path.join(working_dir, url[1:])
