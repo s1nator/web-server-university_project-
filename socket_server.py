@@ -1,12 +1,16 @@
 import socket
-from configuration import working_directory, host, port, home_file
+from configuration import working_directory, host, port, home_file, value_logs_delete
 import threading 
+import time
 import os
 
-def write_in_file(log):
-    with open("access.log", 'r+') as f:
-        file = f.read()
-        file.write(log)
+logs_list = []
+
+def write_in_file(logs, value_delete):
+    print(logs_list)
+    with open("access.log", 'a', encoding="utf-8") as f:
+        f.write(str(logs) + "\n")
+        logs_list.append(logs)
         f.close()
 
 class ClientThread(threading.Thread):
@@ -26,6 +30,7 @@ class ClientThread(threading.Thread):
             print(request)
 
         while True:
+            logs = []
             print(len(request))
             print(request)
     
@@ -35,21 +40,25 @@ class ClientThread(threading.Thread):
             if os.path.isdir(url):
                 url = os.path.join(url, home_file)
     
-            if url.split('/')[-1] == 'indexof':
+            if 'indexof' in url.split('/'):
                 code_error = "200 OK"
+                logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error, request[2]])
                 list_files = os.listdir(working_dir)
+                indexof_name = "Index of /"
+
                 body = f"<html> \
                         <head></head>\
                         <body>\
-                            <h1>Index of /</h1>\
+                            <h1>{indexof_name}</h1>\
                             <hr>\
                         "
+                
                 for file in list_files:
                     if os.path.isfile(file):
                         body += f"<h4><a href={file}>{file}</a></h4>"
                     if os.path.isdir(file):
                         working_dir = os.path.join(working_dir, file)
-                        body += f"<h4><a href={file}>{file}</a></h4>"
+                        body += f"<h4><a href={working_dir}>{file}</a></h4>"
                 body += f"<hr>"
 
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
@@ -59,6 +68,7 @@ class ClientThread(threading.Thread):
 
             elif os.path.isfile(url):
                 code_error = "200 OK"
+                logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error, request[2]])
                 body = open(url, 'r').read()
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                     + "\n\n" + body
@@ -67,6 +77,7 @@ class ClientThread(threading.Thread):
 
             else:
                 code_error = "404 Not Found"
+                logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error , request[2]])
                 body = f"<html> \
                         <head></head>\
                         <body>\
@@ -81,7 +92,7 @@ class ClientThread(threading.Thread):
                       "\n\n" + body
                 self.csocket.send(responce.encode())
                 self.csocket.close()
-            
+            write_in_file(logs, value_logs_delete)
             print("Connection close, bye!\n")
     
     
