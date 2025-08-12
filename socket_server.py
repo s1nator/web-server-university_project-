@@ -1,5 +1,6 @@
-import socket
 from configuration import working_directory, host, port, home_file, value_logs_delete
+import socket
+import asyncio
 import threading 
 import time
 import os
@@ -18,25 +19,36 @@ class ClientThread(threading.Thread):
         print('Hello!', clientAddress)
     
     def run(self):
-        request = []
-        working_dir = working_directory
-        request += self.csocket.recv(4096).decode().split('\n')
-
-        while request[-2] != "\r":
-            request += self.csocket.recv(4096).decode().split('\n')
-
-        while True:
+        try:
             logs = []
-    
-            method, url, protocol = request[0].split(' ')
-            url = os.path.join(working_dir, url[1:])
+            working_dir = working_directory
+
+            request_buffer = b""
+            while b"\r\n\r\n" not in request_buffer:
+                chunk += self.csocket.recv(4096)
+                if not chunk:
+                    break
+                request_buffer += chunk
+
+            request_buffer = request_buffer.decode(errors="replace")
+            request_buffer = request_buffer.split("\r\n")
+
+            if not request_buffer[0]:
+                return
             
+            try:
+                method, url, protocol = request_buffer[0].split(" ")
+                url = os.path.join(working_dir, url[1:])
+            except Exception as exception:
+                return
+            
+
             if os.path.isdir(url):
                 url = os.path.join(url, home_file)
-    
+
             if 'indexof' in url.split('/'):
                 code_error = "200 OK"
-                logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error, request[2]])
+                logs.append([request_buffer[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request_buffer[0], code_error, request[2]])
                 list_files = os.listdir(working_dir)
                 indexof_name = "Index of /"
 
@@ -58,20 +70,18 @@ class ClientThread(threading.Thread):
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                     + "\n\n" + body
                 self.csocket.send(responce.encode())
-                self.csocket.close()
 
             elif os.path.isfile(url):
                 code_error = "200 OK"
-                logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error, request[2]])
+                logs.append([request_buffer[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request_buffer[0], code_error, request_buffer[2]])
                 body = open(url, 'r').read()
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                     + "\n\n" + body
                 self.csocket.send(responce.encode())
-                self.csocket.close()
 
             else:
                 code_error = "404 Not Found"
-                logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error , request[2]])
+                logs.append([request_buffer[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request_buffer[0], code_error , request_buffer[2]])
                 body = f"<html> \
                         <head></head>\
                         <body>\
@@ -83,11 +93,18 @@ class ClientThread(threading.Thread):
                         </body>\
                     </html>"
                 responce = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + \
-                      "\n\n" + body
+                        "\n\n" + body
                 self.csocket.send(responce.encode())
-                self.csocket.close()
+                
             write_in_file(logs, value_logs_delete)
             print("Connection close, bye!\n")
+
+        except Exception as exception:
+            print(f"Error, {exception}")
+
+        finally:
+            self.csocket.close()
+        
     
     
 
