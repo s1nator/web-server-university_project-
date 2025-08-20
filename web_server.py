@@ -4,12 +4,13 @@ import time
 import os
 
 
+
 async def write_in_file(logs, date_delete):
     if date_delete == time.localtime(time.time()):
         with open("access.log", 'r') as f:
             pass
     else:
-        with open("access.log", 'a', encoding="utf-8") as f:
+        with open("/Users/denisbrevnov/Documents/Files/code/Python/Python_FIIT/Python_TASK/web_server_repo/web-server-university_project-/access.log", 'a', encoding="utf-8") as f:
             f.write(str(logs) + "\n")
             f.close()
 
@@ -52,14 +53,42 @@ async def handle_request(request):
     logs = []
 
     request_lines = request.splitlines()[0]
-
     method, url, protocol = request_lines.split(" ", 2)
     url = os.path.join(working_dir, url[1:])
 
-    if os.path.isdir(url):
-        url = os.path.join(url, home_file)
+    if os.path.isdir(url.split("/")[-1]):
+        code_error = "200 OK"
+        request_for_logs = request.split("\n")
+        logs.append([request_for_logs[1].strip("\r"),
+                     time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                     request_for_logs[0].strip("\r"),
+                     code_error,
+                     request_for_logs[2].strip("\r"),
+                     request_for_logs[3].strip("\r")])
+        dir_for_folder = os.path.join(working_directory, url.split("/")[-1])
 
-    if 'indexof' in url.split('/'):
+        list_files = os.listdir(dir_for_folder)
+        name_folder = url.split("/")[-1]
+        body = f"<html> \
+                        <head></head>\
+                        <body>\
+                            <h1>{name_folder}</h1>\
+                            <hr>\
+                        "
+
+        for file in list_files:
+            full_path = os.path.join(dir_for_folder, file)
+            if os.path.isfile(full_path):
+                body += f"<h4><a href={full_path}>{file}</a></h4>"
+            if os.path.isdir(full_path):
+                working_dir = full_path
+                body += f"<h4><a href={working_dir}>{file}</a></h4>"
+        body += f"<hr>"
+
+        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
+                   + "\n\n" + body
+
+    elif 'indexof' in url.split('/'):
         code_error = "200 OK"
         request_for_logs = request.split("\n")
 
@@ -71,12 +100,12 @@ async def handle_request(request):
                      request_for_logs[3].strip("\r")])
 
         list_files = os.listdir(working_dir)
-        indexof_name = "Index of /"
+        index_of_name = "Index of /"
 
         body = f"<html> \
                 <head></head>\
                 <body>\
-                    <h1>{indexof_name}</h1>\
+                    <h1>{index_of_name}</h1>\
                     <hr>\
                 "
 
@@ -91,7 +120,7 @@ async def handle_request(request):
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
             + "\n\n" + body
 
-    elif os.path.isfile(url):
+    elif os.path.isfile(url.split("/")[-1]):
         code_error = "200 OK"
         request_for_logs = request.split("\n")
         logs.append(
@@ -101,11 +130,25 @@ async def handle_request(request):
              code_error,
              request_for_logs[2].strip("\r"),
              request_for_logs[3].strip("\r")])
-
-        body = open(url, 'r').read()
+        body = open(url.split("/")[-1], "rb").read().decode("utf-8")
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
             + "\n\n" + body
 
+    elif url.split("/")[-1] == "":
+        code_error = "200 OK"
+        os.chdir(os.path.join(working_directory, url.split("/")[-1]))
+        request_for_logs = request.split("\n")
+        logs.append(
+            [request_for_logs[1].strip("\r"),
+             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+             request_for_logs[0].strip("\r"),
+             code_error,
+             request_for_logs[2].strip("\r"),
+             request_for_logs[3].strip("\r")])
+        with open("index.htm", "r", encoding="utf-8") as f:
+            body = f.read()
+        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
+                   + "\n\n" + body
 
     else:
         code_error = "404 Not Found"
