@@ -1,13 +1,17 @@
-from configuration import working_directory, host, port, home_file, value_logs_delete
+from configuration import working_directory, host, port, home_file, date_logs_delete
 import asyncio
 import time
 import os
 
 
-def write_in_file(logs, value_delete):
-    with open("access.log", 'a', encoding="utf-8") as f:
-        f.write(str(logs) + "\n")
-        f.close()
+async def write_in_file(logs, date_delete):
+    if date_delete == time.localtime(time.time()):
+        with open("access.log", 'r') as f:
+            pass
+    else:
+        with open("access.log", 'a', encoding="utf-8") as f:
+            f.write(str(logs) + "\n")
+            f.close()
 
 async def read_requests(reader):
     delimiter = b'\r\n\r\n'
@@ -47,7 +51,9 @@ async def handle_request(request):
 
     logs = []
 
-    method, url, protocol = request.split(' ', 2)
+    request_lines = request.splitlines()[0]
+
+    method, url, protocol = request_lines.split(" ", 2)
     url = os.path.join(working_dir, url[1:])
 
     if os.path.isdir(url):
@@ -55,7 +61,15 @@ async def handle_request(request):
 
     if 'indexof' in url.split('/'):
         code_error = "200 OK"
-        logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error, request[2]])
+        request_for_logs = request.split("\n")
+
+        logs.append([request_for_logs[1].strip("\r"),
+                      time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime()),
+                     request_for_logs[0].strip("\r"),
+                     code_error,
+                     request_for_logs[2].strip("\r"),
+                     request_for_logs[3].strip("\r")])
+
         list_files = os.listdir(working_dir)
         indexof_name = "Index of /"
 
@@ -79,7 +93,15 @@ async def handle_request(request):
 
     elif os.path.isfile(url):
         code_error = "200 OK"
-        logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error, request[2]])
+        request_for_logs = request.split("\n")
+        logs.append(
+            [request_for_logs[1].strip("\r"),
+             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+             request_for_logs[0].strip("\r"),
+             code_error,
+             request_for_logs[2].strip("\r"),
+             request_for_logs[3].strip("\r")])
+
         body = open(url, 'r').read()
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
             + "\n\n" + body
@@ -87,7 +109,15 @@ async def handle_request(request):
 
     else:
         code_error = "404 Not Found"
-        logs.append([request[1],time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),request[0], code_error , request[2]])
+        request_for_logs = request.split("\n")
+        logs.append(
+            [request_for_logs[1].strip("\r"),
+             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+             request_for_logs[0].strip("\r"),
+             code_error,
+             request_for_logs[2].strip("\r"),
+             request_for_logs[3].strip("\r")])
+
         body = f"<html> \
                 <head></head>\
                 <body>\
@@ -101,7 +131,7 @@ async def handle_request(request):
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + \
               "\n\n" + body
 
-    write_in_file(logs, value_logs_delete)
+    await write_in_file(logs, date_logs_delete)
     return response
     
     

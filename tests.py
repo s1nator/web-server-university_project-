@@ -1,4 +1,4 @@
-import socket_server
+import web_server
 import unittest
 
 class TestClientThread(unittest.case):
