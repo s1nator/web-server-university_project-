@@ -1,8 +1,9 @@
-from configuration import host, port, date_logs_delete, PROXY_TARGET_HOST, PROXY_TARGET_PORT
+from configuration import host, port, date_logs_delete, PROXY_TARGET_HOST, PROXY_TARGET_PORT, virtual_hosts
 import asyncio
 import aiofiles
 import time
 import ssl
+import re
 
 
 async def write_in_file(logs, date_delete):
@@ -51,9 +52,11 @@ async def serve_client(reader, writer):
 
         response = target_response.decode("utf-8")
 
+
         request_for_logs = response.split("\r\n")
         time_for_logs = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         logs = f"{request_for_logs[1]}|{time_for_logs}|{client_address[0]}|{request_for_logs[0]}"
+
 
         writer.write(response.encode("utf-8"))
         await writer.drain()
