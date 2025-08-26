@@ -19,6 +19,7 @@ async def write_in_file(logs, date_delete):
             await f.write(str(logs) + "\n")
             await f.close()
 
+
 async def read_requests(reader):
     delimiter = b'\r\n\r\n'
     requests = bytearray()
@@ -65,11 +66,37 @@ async def serve_client(reader, writer):
 async def handle_request(request):
 
     logs = ""
-
+    full_path = []
     request_lines = request.splitlines()[0]
     method, url, protocol = request_lines.split(" ", 2)
     path = os.path.join(working_directory, url)
-    protection_directory = await check_path(working_directory, path)
+
+    for word in path.split("/"):
+        full_path.append(str(word))
+
+
+    if "web-server-university_project-" not in full_path and "Users" in full_path:
+        code_error = "404 Not Found"
+        request_for_logs = request.split("\n")
+        logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
+        code_error = "404 Not Found"
+
+        body = f"<html> \
+                                    <head></head>\
+                                    <body>\
+                                        <center>\
+                                            <h1>404 Not Found</h1>\
+                                        </center>\
+                                        <hr>\
+                                        <center>Denis server/ 1.0.0</center>\
+                                    </body>\
+                                </html>"
+        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + \
+                   "\n\n" + body
+
+        await write_in_file(logs, date_logs_delete)
+        return response
+
 
     if url == "/":
         code_error = "200 OK"
@@ -105,7 +132,9 @@ async def handle_request(request):
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                    + "\n\n" + body
 
+
     elif os.path.isfile(path.split("/")[-1]) or os.path.isfile(path):
+
         path = url
         code_error = "200 OK"
         request_for_logs = request.split("\n")
@@ -119,7 +148,10 @@ async def handle_request(request):
             response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                 + "\n\n" + body
 
+
+
     elif 'indexof' == path.split('/')[-1]:
+
         code_error = "200 OK"
         request_for_logs = request.split("\n")
 
@@ -150,19 +182,20 @@ async def handle_request(request):
         code_error = "404 Not Found"
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
+        code_error = "404 Not Found"
 
         body = f"<html> \
-                <head></head>\
-                <body>\
-                    <center>\
-                        <h1>404 Not Found</h1>\
-                    </center>\
-                    <hr>\
-                    <center>Denis server/ 1.0.0</center>\
-                </body>\
-            </html>"
+                            <head></head>\
+                            <body>\
+                                <center>\
+                                    <h1>404 Not Found</h1>\
+                                </center>\
+                                <hr>\
+                                <center>Denis server/ 1.0.0</center>\
+                            </body>\
+                        </html>"
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + \
-              "\n\n" + body
+                   "\n\n" + body
 
     await write_in_file(logs, date_logs_delete)
     return response
