@@ -1,7 +1,7 @@
 import os
 
-PROXY_TARGET_HOST = "127.0.0.1"
-PROXY_TARGET_PORT = 80
+PROXY_PASS_HOST = ""
+PROXY_PASS_PORT = 80
 host = "127.0.0.1"
 port = 4747
 working_directory = os.getcwd()

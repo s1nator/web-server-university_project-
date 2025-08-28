@@ -1,4 +1,4 @@
-from configuration import working_directory, host, port, date_logs_delete
+from configuration import working_directory, host, port, date_logs_delete, PROXY_PASS_HOST, PROXY_PASS_PORT
 from async_lru import alru_cache
 import asyncio
 import aiofiles
@@ -22,7 +22,7 @@ async def write_in_file(logs, date_delete):
 
 
 @alru_cache(maxsize=128)
-async def get_content_file(url):
+async def get_content_from_file(url):
     async with aiofiles.open(url, 'r', encoding="utf-8") as f:
         return await f.read()
 
@@ -52,13 +52,29 @@ async def serve_client(reader, writer):
         return
 
     request = request_bytes.decode("utf-8")
-    response = await handle_request(request)
 
-    writer.write(response.encode("utf-8"))
-    await writer.drain()
-    print('Close connection')
-    writer.close()
-    await writer.wait_closed()
+    if PROXY_PASS_HOST == "":
+        response = await handle_request(request)
+        writer.write(response.encode("utf-8"))
+        await writer.drain()
+        print('Close connection')
+        writer.close()
+        await writer.wait_closed()
+    else:
+        target_reader, target_writer = await asyncio.open_connection(PROXY_PASS_HOST, PROXY_PASS_PORT)
+        response = await handle_request(request)
+        target_writer.write(response.encode("utf-8"))
+        await target_writer.drain()
+        print('Close target connection')
+        response_target_coroutine = await asyncio.wait_for(read_requests(target_reader), timeout=5)
+        response_target = response_target_coroutine
+        writer.write(response_target)
+        await writer.drain()
+        target_writer.close()
+        writer.close()
+        await target_writer.wait_closed()
+        await writer.wait_closed()
+
 
 
 async def handle_request(request):
@@ -76,7 +92,6 @@ async def handle_request(request):
     elif virtual_host == "site_nginx.com":
         path = os.path.join(working_directory, "site_nginx_com")
         path_to_start_file = os.path.join(path, path_to_start_file)
-
 
     elif virtual_host == "site_aiohttp.com":
         path= os.path.join(working_directory, "site_aiohttp_com")
@@ -116,7 +131,7 @@ async def handle_request(request):
         code_error = "200 OK"
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
-        body = await get_content_file(path_to_start_file)
+        body = await get_content_from_file(path_to_start_file)
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                    + "\n\n" + body
 
@@ -152,11 +167,11 @@ async def handle_request(request):
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
         if os.path.isfile(url.split("/")[-1]) and url.split("/")[1] != 'Users':
-            body = await get_content_file(url.split("/")[-1])
+            body = await get_content_from_file(url.split("/")[-1])
             response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                        + "\n\n" + body
         elif os.path.isfile(url):
-            body_coroutine = await get_content_file(path)
+            body_coroutine = await get_content_from_file(path)
             body = body_coroutine
             response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                 + "\n\n" + body
