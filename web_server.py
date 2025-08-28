@@ -35,15 +35,6 @@ async def read_requests(reader):
     return None
 
 
-async def check_path(parent_path,child_path):
-
-    parent_path = os.path.realpath(parent_path)
-    child_path = os.path.realpath(child_path)
-    check_path_variable = os.path.commonpath([parent_path, child_path])
-
-    return check_path_variable == parent_path
-
-
 async def serve_client(reader, writer):
 
     request_bytes = await read_requests(reader)
@@ -69,7 +60,24 @@ async def handle_request(request):
     full_path = []
     request_lines = request.splitlines()[0]
     method, url, protocol = request_lines.split(" ", 2)
-    path = os.path.join(working_directory, url)
+    virtual_host = str(request.split("\n")[1].strip("\r").split("Host: ")[1])
+    path_to_start_file = "index.htm"
+
+
+    if virtual_host == "127.0.0.1":
+        path = os.path.join(working_directory, url)
+
+    elif virtual_host == "site_nginx.com":
+        path = os.path.join(working_directory, "site_nginx_com")
+        path_to_start_file = os.path.join(path, path_to_start_file)
+
+
+    elif virtual_host == "site_aiohttp.com":
+        path= os.path.join(working_directory, "site_aiohttp_com")
+        path_to_start_file = os.path.join(path, path_to_start_file)
+
+    else:
+        path = os.path.join(working_directory, url)
 
     for word in path.split("/"):
         full_path.append(str(word))
@@ -102,7 +110,7 @@ async def handle_request(request):
         code_error = "200 OK"
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
-        with open("index.htm", "r", encoding="utf-8") as f:
+        with open(path_to_start_file, "r", encoding="utf-8") as f:
             body = f.read()
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                    + "\n\n" + body
@@ -135,15 +143,14 @@ async def handle_request(request):
 
     elif os.path.isfile(path.split("/")[-1]) or os.path.isfile(path):
 
-        path = url
         code_error = "200 OK"
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
-        if os.path.isfile(path.split("/")[-1]):
-            body = open(path.split("/")[-1], "rb").read().decode("utf-8")
+        if os.path.isfile(url.split("/")[-1]) and url.split("/")[1] != 'Users':
+            body = open(url.split("/")[-1], "rb").read().decode("utf-8")
             response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                        + "\n\n" + body
-        elif os.path.isfile(path):
+        elif os.path.isfile(url):
             body = open(path, "rb").read().decode("utf-8")
             response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                 + "\n\n" + body
