@@ -53,7 +53,7 @@ async def serve_client(reader, writer):
 
     request = request_bytes.decode("utf-8")
 
-    if PROXY_PASS_HOST == "":
+    if PROXY_PASS_HOST == None:
         response = await handle_request(request)
         writer.write(response.encode("utf-8"))
         await writer.drain()

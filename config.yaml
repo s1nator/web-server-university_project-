@@ -1,0 +1,8 @@
+#These are all the necessary web server settings
+database:
+  host: 127.0.0.1 #this is the host where the web server is located
+  port: 4747 #this is the port where the web server is located
+  proxy_pass_host: #this is the host pass server port to which the request will be sent
+  proxy_pass_port: 80 #this is the proxy pass server port to which the request will be sent
+  working_dir: /Users/denisbrevnov/Documents/Files/code/Python/Python_FIIT/Python_TASK/web_server_repo/web-server-university_project- #path to the main folder of the web server
+  date_logs_delete: 2026-01-01 00:00:00 #date of deletion of all logs (needed to clear the log)

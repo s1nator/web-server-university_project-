@@ -1,10 +1,13 @@
-import os
+import yaml
 
-PROXY_PASS_HOST = ""
-PROXY_PASS_PORT = 80
-host = "127.0.0.1"
-port = 4747
-working_directory = os.getcwd()
-date_logs_delete = "2026-01-01 00:00:00"
-home_file = "index.htm"
+
+with open("config.yaml", 'r') as f:
+    cfg = yaml.safe_load(f)
+
+working_directory = cfg['database']['working_dir']
+host = cfg['database']['host']
+port = cfg['database']['port']
+date_logs_delete = cfg['database']['date_logs_delete']
+PROXY_PASS_HOST = cfg['database']['proxy_pass_host']
+PROXY_PASS_PORT = cfg['database']['proxy_pass_port']
 
