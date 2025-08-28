@@ -1,13 +1,14 @@
 from configuration import working_directory, host, port, date_logs_delete
+from async_lru import alru_cache
 import asyncio
 import aiofiles
-import aiohttp
 import time
 import ssl
 import os
 
 
 
+@alru_cache(maxsize=128)
 async def write_in_file(logs, date_delete):
     current_time = time.localtime()
     current_time_str = time.strftime("%Y-%m-%d %H:%M:%S", current_time)
@@ -18,6 +19,12 @@ async def write_in_file(logs, date_delete):
         async with aiofiles.open(os.path.join(working_directory, "access.log"), 'a', encoding="utf-8") as f:
             await f.write(str(logs) + "\n")
             await f.close()
+
+
+@alru_cache(maxsize=128)
+async def get_content_file(url):
+    async with aiofiles.open(url, 'r', encoding="utf-8") as f:
+        return await f.read()
 
 
 async def read_requests(reader):
@@ -62,7 +69,6 @@ async def handle_request(request):
     method, url, protocol = request_lines.split(" ", 2)
     virtual_host = str(request.split("\n")[1].strip("\r").split("Host: ")[1])
     path_to_start_file = "index.htm"
-
 
     if virtual_host == "127.0.0.1":
         path = os.path.join(working_directory, url)
@@ -110,8 +116,7 @@ async def handle_request(request):
         code_error = "200 OK"
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
-        with open(path_to_start_file, "r", encoding="utf-8") as f:
-            body = f.read()
+        body = await get_content_file(path_to_start_file)
         response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                    + "\n\n" + body
 
@@ -147,14 +152,14 @@ async def handle_request(request):
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
         if os.path.isfile(url.split("/")[-1]) and url.split("/")[1] != 'Users':
-            body = open(url.split("/")[-1], "rb").read().decode("utf-8")
+            body = await get_content_file(url.split("/")[-1])
             response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                        + "\n\n" + body
         elif os.path.isfile(url):
-            body = open(path, "rb").read().decode("utf-8")
+            body_coroutine = await get_content_file(path)
+            body = body_coroutine
             response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
                 + "\n\n" + body
-
 
 
     elif 'indexof' == path.split('/')[-1]:
@@ -206,8 +211,6 @@ async def handle_request(request):
 
     await write_in_file(logs, date_logs_delete)
     return response
-
-
 
 
 async def main():
