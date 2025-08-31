@@ -2,6 +2,7 @@ from configuration import working_directory, host, port, date_logs_delete, PROXY
 from async_lru import alru_cache
 import asyncio
 import aiofiles
+import multiprocessing
 import time
 import ssl
 import os
@@ -37,7 +38,6 @@ async def read_requests(reader):
 
         requests += chunk
         if delimiter in chunk:
-            print(requests)
             return requests
 
     return None
@@ -79,7 +79,6 @@ async def serve_client(reader, writer):
 
 
 async def handle_request(request):
-
     logs = ""
     full_path = []
     request_lines = request.splitlines()[0]
