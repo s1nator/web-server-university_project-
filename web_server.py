@@ -37,6 +37,7 @@ async def read_requests(reader):
 
         requests += chunk
         if delimiter in chunk:
+            print(requests)
             return requests
 
     return None
