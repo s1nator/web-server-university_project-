@@ -6,3 +6,4 @@ database:
   proxy_pass_port: 80 #this is the proxy pass server port to which the request will be sent
   working_dir: /Users/denisbrevnov/Documents/Files/code/Python/Python_FIIT/Python_TASK/web_server_repo/web-server-university_project- #path to the main folder of the web server
   date_logs_delete: 2026-01-01 00:00:00 #date of deletion of all logs (needed to clear the log)
+  quantity_workers: 5

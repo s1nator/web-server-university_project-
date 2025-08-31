@@ -1,4 +1,6 @@
-from configuration import working_directory, host, port, date_logs_delete, PROXY_PASS_HOST, PROXY_PASS_PORT
+import psutil
+
+from configuration import working_directory, host, port, date_logs_delete, PROXY_PASS_HOST, PROXY_PASS_PORT, quantity_workers
 from async_lru import alru_cache
 import asyncio
 import aiofiles
@@ -231,7 +233,7 @@ async def handle_request(request):
 async def main():
     sslcontext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     sslcontext.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
-    server = await asyncio.start_server(serve_client, host=host, port=port, ssl=sslcontext)
+    server = await asyncio.start_server(serve_client, host=host, port=port, ssl=sslcontext, reuse_port=True)
     address = server.sockets[0].getsockname()
     print("Serving on ", address)
 
@@ -239,8 +241,20 @@ async def main():
         await server.serve_forever()
 
 
-if __name__ == '__main__':
+def run_server():
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nShutting down")
+
+
+if __name__ == '__main__':
+
+    processes = []
+    for process in range(quantity_workers):
+        p = multiprocessing.Process(target=run_server)
+        processes.append(p)
+        p.start()
+
+    for process in processes:
+        process.join()

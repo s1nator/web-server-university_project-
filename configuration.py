@@ -4,6 +4,7 @@ import yaml
 with open("config.yaml", 'r') as f:
     cfg = yaml.safe_load(f)
 
+quantity_workers = cfg['database']['quantity_workers']
 working_directory = cfg['database']['working_dir']
 host = cfg['database']['host']
 port = cfg['database']['port']
