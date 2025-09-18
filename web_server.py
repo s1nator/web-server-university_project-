@@ -1,6 +1,12 @@
-import psutil
-
-from configuration import working_directory, host, port, date_logs_delete, PROXY_PASS_HOST, PROXY_PASS_PORT, quantity_workers
+from configuration import (
+    working_directory,
+    host,
+    port,
+    date_logs_delete,
+    PROXY_PASS_HOST,
+    PROXY_PASS_PORT,
+    quantity_workers,
+)
 from async_lru import alru_cache
 import asyncio
 import aiofiles
@@ -10,28 +16,29 @@ import ssl
 import os
 
 
-
 @alru_cache(maxsize=128)
 async def write_in_file(logs, date_delete):
     current_time = time.localtime()
     current_time_str = time.strftime("%Y-%m-%d %H:%M:%S", current_time)
     if date_delete == current_time_str:
-        async with aiofiles.open("access.log", 'r') as f:
+        async with aiofiles.open("access.log", "r") as f:
             pass
     else:
-        async with aiofiles.open(os.path.join(working_directory, "access.log"), 'a', encoding="utf-8") as f:
+        async with aiofiles.open(
+            os.path.join(working_directory, "access.log"), "a", encoding="utf-8"
+        ) as f:
             await f.write(str(logs) + "\n")
             await f.close()
 
 
 @alru_cache(maxsize=128)
 async def get_content_from_file(url):
-    async with aiofiles.open(url, 'r', encoding="utf-8") as f:
+    async with aiofiles.open(url, "r", encoding="utf-8") as f:
         return await f.read()
 
 
 async def read_requests(reader):
-    delimiter = b'\r\n\r\n'
+    delimiter = b"\r\n\r\n"
     requests = bytearray()
     while True:
         chunk = await reader.read(4096)
@@ -49,7 +56,7 @@ async def serve_client(reader, writer):
 
     request_bytes = await read_requests(reader)
     if request_bytes is None:
-        print(f'Client unexpectedly disconnected')
+        print(f"Client unexpectedly disconnected")
         writer.close()
         await writer.wait_closed()
         return
@@ -60,16 +67,20 @@ async def serve_client(reader, writer):
         response = await handle_request(request)
         writer.write(response.encode("utf-8"))
         await writer.drain()
-        print('Close connection')
+        print("Close connection")
         writer.close()
         await writer.wait_closed()
     else:
-        target_reader, target_writer = await asyncio.open_connection(PROXY_PASS_HOST, PROXY_PASS_PORT)
+        target_reader, target_writer = await asyncio.open_connection(
+            PROXY_PASS_HOST, PROXY_PASS_PORT
+        )
         response = await handle_request(request)
         target_writer.write(response.encode("utf-8"))
         await target_writer.drain()
-        print('Close target connection')
-        response_target_coroutine = await asyncio.wait_for(read_requests(target_reader), timeout=5)
+        print("Close target connection")
+        response_target_coroutine = await asyncio.wait_for(
+            read_requests(target_reader), timeout=5
+        )
         response_target = response_target_coroutine
         writer.write(response_target)
         await writer.drain()
@@ -77,7 +88,6 @@ async def serve_client(reader, writer):
         writer.close()
         await target_writer.wait_closed()
         await writer.wait_closed()
-
 
 
 async def handle_request(request):
@@ -96,7 +106,7 @@ async def handle_request(request):
         path_to_start_file = os.path.join(path, path_to_start_file)
 
     elif virtual_host == "site_aiohttp.com":
-        path= os.path.join(working_directory, "site_aiohttp_com")
+        path = os.path.join(working_directory, "site_aiohttp_com")
         path_to_start_file = os.path.join(path, path_to_start_file)
 
     else:
@@ -104,7 +114,6 @@ async def handle_request(request):
 
     for word in path.split("/"):
         full_path.append(str(word))
-
 
     if "web-server-university_project-" not in full_path and "Users" in full_path:
         code_error = "404 Not Found"
@@ -122,20 +131,17 @@ async def handle_request(request):
                                         <center>Denis server/ 1.0.0</center>\
                                     </body>\
                                 </html>"
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + \
-                   "\n\n" + body
+        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
 
         await write_in_file(logs, date_logs_delete)
         return response
-
 
     if url == "/":
         code_error = "200 OK"
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
         body = await get_content_from_file(path_to_start_file)
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
-                   + "\n\n" + body
+        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
 
     elif os.path.isdir(path):
 
@@ -159,27 +165,22 @@ async def handle_request(request):
                 body += f"<h4><a href={path}>{file}</a></h4>"
         body += f"<hr>"
 
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
-                   + "\n\n" + body
-
+        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
 
     elif os.path.isfile(path.split("/")[-1]) or os.path.isfile(path):
 
         code_error = "200 OK"
         request_for_logs = request.split("\n")
         logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
-        if os.path.isfile(url.split("/")[-1]) and url.split("/")[1] != 'Users':
+        if os.path.isfile(url.split("/")[-1]) and url.split("/")[1] != "Users":
             body = await get_content_from_file(url.split("/")[-1])
-            response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
-                       + "\n\n" + body
+            response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
         elif os.path.isfile(url):
             body_coroutine = await get_content_from_file(path)
             body = body_coroutine
-            response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
-                + "\n\n" + body
+            response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
 
-
-    elif 'indexof' == path.split('/')[-1]:
+    elif "indexof" == path.split("/")[-1]:
 
         code_error = "200 OK"
         request_for_logs = request.split("\n")
@@ -204,8 +205,7 @@ async def handle_request(request):
                 body += f"<h4><a href={working_dir}>{file}</a></h4>"
         body += f"<hr>"
 
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" \
-            + "\n\n" + body
+        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
 
     else:
         code_error = "404 Not Found"
@@ -223,8 +223,7 @@ async def handle_request(request):
                                 <center>Denis server/ 1.0.0</center>\
                             </body>\
                         </html>"
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + \
-                   "\n\n" + body
+        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
 
     await write_in_file(logs, date_logs_delete)
     return response
@@ -233,7 +232,9 @@ async def handle_request(request):
 async def main():
     sslcontext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     sslcontext.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
-    server = await asyncio.start_server(serve_client, host=host, port=port, ssl=sslcontext, reuse_port=True)
+    server = await asyncio.start_server(
+        serve_client, host=host, port=port, ssl=sslcontext, reuse_port=True
+    )
     address = server.sockets[0].getsockname()
     print("Serving on ", address)
 
@@ -248,7 +249,7 @@ def run_server():
         print("\nShutting down")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     processes = []
     for process in range(quantity_workers):
