@@ -52,6 +52,26 @@ async def read_requests(reader):
     return None
 
 
+async def create_logs(code_error, request):
+    logs = ""
+    request_for_logs = request.split("\n")
+    host_for_logs = request_for_logs[1].strip("\r")
+    get_for_logs = request_for_logs[0].strip("\r")
+    user_agent_for_logs = request_for_logs[2].strip("\r")
+    accept_for_logs = request_for_logs[3].strip("\r")
+    for request_line in request_for_logs:
+        if "Host:" in request_line.split():
+            host_for_logs = request_line.strip("\r")
+        if "GET:" in request_line.split():
+            get_for_logs = request_line.strip("\r")
+        if "User-Agent:" in request_line.split():
+            user_agent_for_logs = request_line.strip("\r")
+        if "Accept:" in request_line.split():
+            accept_for_logs = request_line.strip("\r")
+    logs += f"{host_for_logs}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{get_for_logs}|{code_error, user_agent_for_logs}|{accept_for_logs}"
+    return logs
+
+
 async def serve_client(reader, writer):
 
     request_bytes = await read_requests(reader)
@@ -63,8 +83,8 @@ async def serve_client(reader, writer):
 
     request = request_bytes.decode("utf-8")
 
-    if PROXY_PASS_HOST == None:
-        response = await handle_request(request)
+    if not PROXY_PASS_HOST:
+        response = await handle_local_request(request)
         writer.write(response.encode("utf-8"))
         await writer.drain()
         print("Close connection")
@@ -74,8 +94,7 @@ async def serve_client(reader, writer):
         target_reader, target_writer = await asyncio.open_connection(
             PROXY_PASS_HOST, PROXY_PASS_PORT
         )
-        response = await handle_request(request)
-        target_writer.write(response.encode("utf-8"))
+        target_writer.write(request.encode("utf-8"))
         await target_writer.drain()
         print("Close target connection")
         response_target_coroutine = await asyncio.wait_for(
@@ -90,18 +109,23 @@ async def serve_client(reader, writer):
         await writer.wait_closed()
 
 
-async def handle_request(request):
+async def handle_local_request(request):
     logs = ""
     full_path = []
     request_lines = request.splitlines()[0]
     method, url, protocol = request_lines.split(" ", 2)
-    virtual_host = str(request.split("\n")[1].strip("\r").split("Host: ")[1])
+
+    for element_from_request in request.split("\n"):
+        if "Host:" in element_from_request.split():
+            virtual_host = str(element_from_request.split()[1])
     path_to_start_file = "index.htm"
 
     if virtual_host == "127.0.0.1":
         path = os.path.join(working_directory, url)
 
-    elif virtual_host == "site_nginx.com":
+    elif (
+        virtual_host == "site_nginx.com"
+    ):  # curl -k -H "Host: site_nginx.com" https://127.0.0.1:4747
         path = os.path.join(working_directory, "site_nginx_com")
         path_to_start_file = os.path.join(path, path_to_start_file)
 
@@ -115,11 +139,13 @@ async def handle_request(request):
     for word in path.split("/"):
         full_path.append(str(word))
 
-    if "web-server-university_project-" not in full_path and "Users" in full_path:
+    if (
+        "web-server-university_project-" not in full_path
+        and "Users" in full_path
+        or "etc" in full_path
+    ):
         code_error = "404 Not Found"
-        request_for_logs = request.split("\n")
-        logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
-        code_error = "404 Not Found"
+        logs = await create_logs(code_error, request)
 
         body = f"<html> \
                                     <head></head>\
@@ -131,23 +157,30 @@ async def handle_request(request):
                                         <center>Denis server/ 1.0.0</center>\
                                     </body>\
                                 </html>"
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+        response = (
+            f"HTTP/1.1 {code_error}\n"
+            + "Content-Type: text/html; charset=utf-8"
+            + "\n\n"
+            + body
+        )
 
         await write_in_file(logs, date_logs_delete)
         return response
 
     if url == "/":
         code_error = "200 OK"
-        request_for_logs = request.split("\n")
-        logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
+        logs = await create_logs(code_error, request)
         body = await get_content_from_file(path_to_start_file)
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+        response = (
+            f"HTTP/1.1 {code_error}\n"
+            + "Content-Type: text/html; charset=utf-8"
+            + "\n\n"
+            + body
+        )
 
     elif os.path.isdir(path):
-
         code_error = "200 OK"
-        request_for_logs = request.split("\n")
-        logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
+        logs = await create_logs(code_error, request)
         list_files = os.listdir(path)
         name_folder = url.split("/")[-1]
         body = f"<html> \
@@ -165,28 +198,52 @@ async def handle_request(request):
                 body += f"<h4><a href={path}>{file}</a></h4>"
         body += f"<hr>"
 
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+        response = (
+            f"HTTP/1.1 {code_error}\n"
+            + "Content-Type: text/html; charset=utf-8"
+            + "\n\n"
+            + body
+        )
 
     elif os.path.isfile(path.split("/")[-1]) or os.path.isfile(path):
-
         code_error = "200 OK"
         request_for_logs = request.split("\n")
-        logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
+        host_for_logs = request_for_logs[1].strip("\r")
+        get_for_logs = request_for_logs[0].strip("\r")
+        user_agent_for_logs = request_for_logs[2].strip("\r")
+        accept_for_logs = request_for_logs[3].strip("\r")
+        for request_line in request_for_logs:
+            if "Host:" in request_line.split():
+                host_for_logs = request_line.strip("\r")
+            if "GET:" in request_line.split():
+                get_for_logs = request_line.strip("\r")
+            if "User-Agent:" in request_line.split():
+                user_agent_for_logs = request_line.strip("\r")
+            if "Accept:" in request_line.split():
+                accept_for_logs = request_line.strip("\r")
+        logs += f"{host_for_logs}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{get_for_logs}|{code_error, user_agent_for_logs}|{accept_for_logs}"
         if os.path.isfile(url.split("/")[-1]) and url.split("/")[1] != "Users":
             body = await get_content_from_file(url.split("/")[-1])
-            response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+            response = (
+                f"HTTP/1.1 {code_error}\n"
+                + "Content-Type: text/html; charset=utf-8"
+                + "\n\n"
+                + body
+            )
         elif os.path.isfile(url):
             body_coroutine = await get_content_from_file(path)
             body = body_coroutine
-            response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+            response = (
+                f"HTTP/1.1 {code_error}\n"
+                + "Content-Type: text/html; charset=utf-8"
+                + "\n\n"
+                + body
+            )
 
     elif "indexof" == path.split("/")[-1]:
 
         code_error = "200 OK"
-        request_for_logs = request.split("\n")
-
-        logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
-
+        logs = await create_logs(code_error, request)
         list_files = os.listdir(working_directory)
         index_of_name = "Index of /"
 
@@ -205,13 +262,16 @@ async def handle_request(request):
                 body += f"<h4><a href={working_dir}>{file}</a></h4>"
         body += f"<hr>"
 
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+        response = (
+            f"HTTP/1.1 {code_error}\n"
+            + "Content-Type: text/html; charset=utf-8"
+            + "\n\n"
+            + body
+        )
 
     else:
         code_error = "404 Not Found"
-        request_for_logs = request.split("\n")
-        logs += f"{request_for_logs[1].strip("\r")}|{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}|{request_for_logs[0].strip("\r")}|{code_error, request_for_logs[2].strip("\r")}|{request_for_logs[3].strip("\r")}"
-        code_error = "404 Not Found"
+        logs = await create_logs(code_error, request)
 
         body = f"<html> \
                             <head></head>\
@@ -223,7 +283,12 @@ async def handle_request(request):
                                 <center>Denis server/ 1.0.0</center>\
                             </body>\
                         </html>"
-        response = f"HTTP/1.1 {code_error}\n" + "Server:my_server" + "\n\n" + body
+        response = (
+            f"HTTP/1.1 {code_error}\n"
+            + "Content-Type: text/html; charset=utf-8"
+            + "\n\n"
+            + body
+        )
 
     await write_in_file(logs, date_logs_delete)
     return response
