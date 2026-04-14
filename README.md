@@ -54,7 +54,7 @@
    
 ## Использование
 ```bash
-  python3 web_server.py
+  python3 src/web_server.py
 ```
 
 ## Конфигурация
